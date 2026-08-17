@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">RP2040 and ESP32 AI workflow block diagram</title>
+  <desc id="desc">A block diagram showing model export on a development machine, ESP32-S3 LLM inference, UART output, RP2040 display node, and OLED rendering.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f9fb; }
+      .card { fill: #ffffff; stroke: #243041; stroke-width: 2; rx: 14; }
+      .chip { fill: #ecf7ff; stroke: #1271a6; stroke-width: 2; rx: 14; }
+      .node { fill: #f1fff4; stroke: #2b7a3d; stroke-width: 2; rx: 14; }
+      .asset { fill: #fff8e8; stroke: #9a6a00; stroke-width: 2; rx: 14; }
+      .title { font: 700 25px Arial, sans-serif; fill: #142033; }
+      .label { font: 700 18px Arial, sans-serif; fill: #142033; }
+      .text { font: 15px Arial, sans-serif; fill: #364357; }
+      .small { font: 13px Arial, sans-serif; fill: #4c5a6f; }
+      .arrow { stroke: #263446; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 8 7; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#263446" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="720" />
+  <text class="title" x="64" y="58">RP2040 and ESP32 AI: Final System Workflow</text>
+  <text class="text" x="64" y="86">ESP32-S3 runs the real 28.9M-parameter LLM. RP2040 acts as the serial OLED display node.</text>
+
+  <rect class="card" x="64" y="135" width="250" height="150" />
+  <text class="label" x="88" y="172">Development PC</text>
+  <text class="text" x="88" y="204">Train / export / quantize</text>
+  <text class="small" x="88" y="230">src/export.py</text>
+  <text class="small" x="88" y="252">host_verify/verify.c</text>
+
+  <rect class="asset" x="390" y="135" width="250" height="150" />
+  <text class="label" x="414" y="172">Model Artifact</text>
+  <text class="text" x="414" y="204">group-128 ragged int4</text>
+  <text class="small" x="414" y="230">firmware/model/model.bin</text>
+  <text class="small" x="414" y="252">flash offset 0x110000</text>
+
+  <rect class="chip" x="716" y="116" width="280" height="188" />
+  <text class="label" x="740" y="153">ESP32-S3 LLM Engine</text>
+  <text class="text" x="740" y="185">28.9M-parameter PLE TinyLM</text>
+  <text class="small" x="740" y="211">model mmap from flash</text>
+  <text class="small" x="740" y="233">head + scratch in PSRAM</text>
+  <text class="small" x="740" y="255">greedy token generation</text>
+  <text class="small" x="740" y="277">Serial text stream out</text>
+
+  <rect class="asset" x="1060" y="150" width="150" height="120" />
+  <text class="label" x="1085" y="185">Output</text>
+  <text class="text" x="1085" y="214">tokens</text>
+  <text class="small" x="1085" y="238">115200 baud</text>
+
+  <rect class="node" x="716" y="420" width="280" height="160" />
+  <text class="label" x="740" y="458">RP2040 Display Node</text>
+  <text class="text" x="740" y="490">UART receiver + word wrap</text>
+  <text class="small" x="740" y="516">firmware/rp2040_display_node</text>
+  <text class="small" x="740" y="538">U8g2 OLED renderer</text>
+
+  <rect class="node" x="1060" y="438" width="150" height="124" />
+  <text class="label" x="1086" y="475">OLED</text>
+  <text class="text" x="1086" y="504">128x64 I2C</text>
+  <text class="small" x="1086" y="528">SSD1306/SH1106</text>
+
+  <rect class="card" x="64" y="430" width="300" height="132" />
+  <text class="label" x="88" y="467">Why Two Boards?</text>
+  <text class="text" x="88" y="499">RP2040 cannot host the real LLM</text>
+  <text class="small" x="88" y="523">264 KB SRAM, no PSRAM</text>
+  <text class="small" x="88" y="545">ESP32-S3 handles inference</text>
+
+  <path class="arrow" d="M314 210 H390" />
+  <path class="arrow" d="M640 210 H716" />
+  <path class="arrow" d="M996 210 H1060" />
+  <path class="arrow" d="M1135 270 V438" />
+  <path class="arrow" d="M1060 500 H996" />
+  <path class="arrow dash" d="M856 304 V420" />
+  <text class="small" x="875" y="365">UART serial text</text>
+
+  <path class="arrow dash" d="M364 496 C470 496, 548 496, 716 496" />
+  <text class="small" x="430" y="478">display-only companion</text>
+</svg>
