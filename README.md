@@ -1,4 +1,4 @@
-# RP2040 and ESP32 AI
+# Running a 28.9M parameter model on ESP32 and Raspberry Pi 2040
 
 RP2040 and ESP32 AI is a two-board embedded AI demo built around an ESP32-S3
 LLM engine and an RP2040 OLED display node. The ESP32-S3 runs the actual
@@ -9,16 +9,16 @@ This repository contains the ESP32-S3 inference firmware, model export and
 verification tooling, an RP2040 serial OLED display-node sketch, a workflow
 diagram, and demo output assets.
 
-![ESP32 LLM output demo](img/esp32-llm-output.gif)
+![ESP32 LLM Workflow](img/workflow-block-diagram.svg)
 
 ## Project Story
 
-I first tried to put the same million-parameter LLM idea directly on the RP2040.
-Because the RP2040 only has 264 KB SRAM and no PSRAM, the real LLM path was not
-practical there. I used a smaller alternative for the RP2040 demo, but the output
+1. Tried to put the same million-parameter LLM idea directly on the RP2040.
+Because the RP2040 only has 264 KB SRAM and no PSRAM, not practical there.
+I used a smaller alternative for the RP2040 demo, but the output
 quality was not enough for a real LLM project.
 
-The final version uses the ESP32-S3 as the actual LLM engine, based on the
+2. Final version uses the ESP32-S3 as the actual LLM engine, based on the
 excellent `esp32-ai` work by Viacheslav Sierbov / slvDev:
 
 https://github.com/slvDev/esp32-ai
@@ -28,14 +28,14 @@ serial and renders it on the OLED.
 
 ## Features
 
-- ESP32-S3 runs the actual 28.9M-parameter PLE TinyLM model
-- Model is stored in a custom flash partition and memory-mapped at runtime
-- Hot output head and scratch buffers are staged in PSRAM
-- Host-side export and verification tools are included
-- RP2040 display node receives generated text over UART
-- 128x64 I2C OLED output using U8g2 on the RP2040
-- Demo output GIF included in `img/`
-- No cloud API is required for the embedded inference demo
++- ESP32-S3 runs the actual 28.9M-parameter PLE TinyLM model
++- Model is stored in a custom flash partition and memory-mapped at runtime
++- Hot output head and scratch buffers are staged in PSRAM
++- Host-side export and verification tools are included
++- RP2040 display node receives generated text over UART
++- 128x64 I2C OLED output using U8g2 on the RP2040
++- Demo output GIF included in `img/`
++- No cloud API is required for the embedded inference demo
 
 ## Repository Structure
 
@@ -106,19 +106,6 @@ serial and renders it on the OLED.
 - `src/export.py`: exports the quantized model payload used by the ESP32.
 - `img/workflow-block-diagram.svg`: block diagram for the final system.
 
-## System Workflow
-
-![RP2040 and ESP32 AI workflow](img/workflow-block-diagram.svg)
-
-The system is organized around these functional blocks:
-
-- Model training, export, and quantization on the development machine
-- ESP32-S3 model partition in flash
-- ESP32-S3 PSRAM staging and inference runtime
-- UART serial stream carrying generated tokens/text
-- RP2040 OLED display node
-- 128x64 I2C OLED output
-
 ## Build and Flash Checklist
 
 Before running the full demo, confirm:
@@ -135,39 +122,16 @@ Before running the full demo, confirm:
 - RP2040 OLED controller is SSD1306 or SH1106 as configured in the sketch
 - Serial baud rate is `115200`
 
-## Hardware Summary
 
-The final demo uses:
+## Credit
+This person has already ran the 28.9M parameter on the microcontroller - https://github.com/slvDev/esp32-ai
+I attempted to take it further, but couldn't do it - Leaving this as experimental.
+TinyStories is the dataset this trains on (Ronen Eldan and Yuanzhi Li, Microsoft Research, arXiv:2305.07759). 
 
-- 1x ESP32-S3 N16R8 or equivalent board with PSRAM
-- 1x Raspberry Pi Pico / RP2040 board
-- 1x 128x64 I2C OLED display
-- USB cable for flashing and monitoring
-- UART connection from ESP32 TX to RP2040 RX
-- Common ground between ESP32 and RP2040
-
-## Revision Status
-
-This is a revision 1 embedded AI demo package. Treat it as an experimental
-firmware project that should be validated on the exact ESP32-S3 board, PSRAM
-configuration, flash layout, RP2040 board, and OLED controller before public
-demo use.
-
-## Contributing
-
-Issues, suggestions, and pull requests are welcome. For firmware changes,
-include:
-
-- A short description of the reason for the change
-- The ESP32-S3 or RP2040 board used for testing
-- Notes about model export, host verification, compile, upload, and runtime
-  checks where applicable
-- Serial output or demo media when behavior changes visibly
+The other half is Per-Layer Embeddings, Google's design from Gemma 3n, which is what lets a big model fit on a small chip.
+Andrej Karpathy's llama2.c is the reference for training a small language model and running it in plain C.
 
 ## License
 
 This project is released under the MIT License. See [LICENSE](LICENSE) for the
 full terms and [NOTICE.md](NOTICE.md) for upstream attribution.
-
-Project branding is not licensed as open source. See [BRANDING.md](BRANDING.md)
-for the RP2040 and ESP32 AI branding notice.
