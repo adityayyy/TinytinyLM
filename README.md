@@ -108,32 +108,12 @@ and renders it on the OLED.
 
 ## System Workflow
 
-The final workflow is:
-
-1. Train/export/quantize the model on a development machine.
-2. Verify the portable C runtime against the exported model.
-3. Flash the ESP32-S3 firmware.
-4. Write the model binary to the ESP32-S3 custom `model` flash partition.
-5. ESP32-S3 memory-maps the model and stages hot buffers in PSRAM.
-6. ESP32-S3 generates text from the 28.9M-parameter PLE TinyLM.
-7. Generated text streams over UART/Serial.
-8. RP2040 receives the stream and renders it on the OLED.
-
-## Build and Flash Checklist
-
-Before running the full demo, confirm:
-
-- ESP32-S3 board has 16 MB flash and 8 MB PSRAM
-- Arduino ESP32 core is installed and selected for ESP32-S3
-- Custom partition scheme is enabled using `firmware/esp32_llm/partitions.csv`
-- Model payload is exported with `src/export.py`
-- Host verification passes before flashing the model
-- ESP32 firmware is uploaded before writing the model partition
-- Model binary is written to flash offset `0x110000`
-- ESP32 UART TX is wired to RP2040 UART RX
-- ESP32 and RP2040 share ground
-- RP2040 OLED controller is SSD1306 or SH1106 as configured in the sketch
-- Serial baud rate is `115200`
+The model is trained, exported, and quantized on a development machine, then
+verified against the portable C runtime before deployment. On the device side,
+the ESP32-S3 firmware loads the model from the custom flash partition,
+memory-maps it, stages the hot buffers in PSRAM, and generates text from the
+28.9M-parameter PLE TinyLM. The generated text is streamed over UART/Serial to
+the RP2040, which receives the stream and renders it on the OLED.
 
 ## Hardware Summary
 
@@ -143,14 +123,6 @@ Before running the full demo, confirm:
 - USB cable for flashing and monitoring
 - UART connection from ESP32 TX to RP2040 RX
 - Common ground between ESP32 and RP2040
-
-## Demo Images
-
-The `img/` folder contains:
-
-- `workflow-block-diagram.svg`: system block diagram
-- `IMG_20260817_222228.jpg`: demo hardware/output image
-- `IMG_20260817_222245.jpg`: demo hardware/output image
 
 ## Credit
 
