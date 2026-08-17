@@ -141,11 +141,7 @@ flash and reading only the rows needed at each token.
 Andrej Karpathy's `llama2.c` is an important reference for training a small
 language model and running inference in plain C.
 
-## Revision Status
 
-This is an experimental revision 1 embedded AI demo. Validate the ESP32-S3 board,
-PSRAM configuration, flash layout, RP2040 wiring, and OLED controller before
-using it for a public demo.
 
 ## License
 
