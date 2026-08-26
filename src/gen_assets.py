@@ -9,7 +9,7 @@ import os
 from tokenizers import Tokenizer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TOK = os.path.join(HERE, "..", "data", "bpe32768.json")
+TOK = os.path.join(HERE, "..", "data", "bpe256.json")
 OUT = os.path.join(HERE, "..", "firmware", "esp32_llm", "vocab.h")
 PROMPT = "Once upon a time"
 

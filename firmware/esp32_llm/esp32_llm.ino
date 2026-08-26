@@ -1,4 +1,4 @@
-// PLE TinyLM inference on the ESP32-S3.
+// TinytinyLM inference on the ESP32.
 // The 28.9M-param model (14.9MB, 4-bit) lives in a flash 'model' partition,
 // memory-mapped so the 25M table is read a row at a time from flash; the hot
 // tied head plus scratch and KV cache sit in PSRAM. Same llm.h that was verified
@@ -14,12 +14,12 @@
 
 // Leave 0 for the ESP32-as-LLM-engine setup. The ESP32 streams generated text
 // over Serial, and the RP2040 display node renders that stream on its OLED.
-#define USE_DISPLAY 0
+#define USE_DISPLAY 1
 #if USE_DISPLAY
 #include "display.h"
 #endif
 
-static const int PROMPT_IDS[] = {433, 447, 259, 405}; // "Once upon a time"
+static const int PROMPT_IDS[] = {47, 78, 67, 69, 221, 85, 80, 79, 78, 221, 65, 221, 84, 73, 77, 69}; // "Once upon a time"
 static const int N_GENERATE = 200;
 
 // Emit one token to every active output (serial always; TFT when enabled).
@@ -53,7 +53,7 @@ static int head_rows, head_cols;
 static int8_t head_actq[128];       // quantized activation, shared by both cores
 static float  head_acts;            // its scale
 
-// int8 dot -> int32. Tight and branch-free so the S3 int SIMD / -O3 unrolls it.
+// int8 dot -> int32. Tight and branch-free so the int SIMD / -O3 unrolls it.
 static inline int32_t dot_i8(const int8_t *a, const int8_t *b, int n) {
   int32_t acc = 0;
   for (int i = 0; i < n; i++) acc += (int32_t)a[i] * (int32_t)b[i];
@@ -92,8 +92,8 @@ static void head_matvec_int8(const QT *t, const float *x, float *y) {
 }
 
 static void *ps(size_t n) {
-  void *p = heap_caps_malloc(n, MALLOC_CAP_SPIRAM);
-  if (!p) { Serial.printf("PSRAM alloc failed (%u bytes)\n", (unsigned)n); while (1) delay(1000); }
+  void *p = malloc(n);
+  if (!p) { Serial.printf("SRAM alloc failed (%u bytes)\n", (unsigned)n); while (1) delay(1000); }
   return p;
 }
 
@@ -125,7 +125,7 @@ static void blink(uint8_t g) {
 void setup() {
   Serial.begin(115200);
   delay(1500);
-  Serial.println("\n=== ESP32-S3 PLE TinyLM ===");
+  Serial.println("\n=== TinytinyLM ===");
 
   // Map the model partition.
   const esp_partition_t *part = esp_partition_find_first(
@@ -150,7 +150,9 @@ void setup() {
   // Cap head rows to the trained vocab BEFORE staging: the tokenizer learned
   // 25,353 entries; the padded rows above that can never be emitted (and have no
   // decode entry), so we neither stage nor score them.
-  model.tok_emb.rows = VOCAB_N;
+  int V = c->vocab;
+  if (VOCAB_N < V) V = VOCAB_N;  // use the smaller of tokenizer vs model vocab
+  model.tok_emb.rows = V;
   stage_head_int8(&model.tok_emb);  // int8-staged head; input embedding still uses mmap
   inference_task = xTaskGetCurrentTaskHandle();
   if (xTaskCreatePinnedToCore(head_worker_main, "head", 4096, NULL, 2,
@@ -160,7 +162,7 @@ void setup() {
   }
   model.head_matvec = head_matvec_int8;
 
-  int D = c->dim, L = c->n_layers, P = c->ple_dim, F = c->ffn, V = c->vocab, S = c->seq_len;
+  int D = c->dim, L = c->n_layers, P = c->ple_dim, F = c->ffn, S = c->seq_len;
   s.x = (float *)ps(D * 4);
   s.h = (float *)ps((F > D ? F : D) * 4);
   s.qkv = (float *)ps(3 * D * 4);
@@ -174,8 +176,8 @@ void setup() {
   s.scores = (float *)ps(S * 4);
   s.kcache = (float *)ps((size_t)L * S * D * 4);
   s.vcache = (float *)ps((size_t)L * S * D * 4);
-  Serial.printf("PSRAM free after alloc: %u KB\n\n",
-                heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024);
+  Serial.printf("SRAM free after alloc: %u KB\n\n",
+              ESP.getFreeHeap() / 1024);
 
   // ---- generate ----
   Serial.print(">>> ");
@@ -197,7 +199,7 @@ void setup() {
   for (int step = 0; step < N_GENERATE && pos < model.c.seq_len; step++) {
     // greedy: argmax over the trained vocab
     int best = 0; float bv = -1e30f;
-    for (int v = 0; v < VOCAB_N; v++)
+    for (int v = 0; v < V; v++)
       if (s.logits[v] > bv) { bv = s.logits[v]; best = v; }
     tok = best;
     emit(tok);

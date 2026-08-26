@@ -29,11 +29,11 @@
 #define OLED_SH1106  1
 #define OLED_SSD1306 2
 #ifndef OLED_CONTROLLER
-#define OLED_CONTROLLER OLED_SH1106
+#define OLED_CONTROLLER OLED_SSD1306
 #endif
 
-#define OLED_SDA 18
-#define OLED_SCL 46
+#define OLED_SDA 21
+#define OLED_SCL 22
 #define OLED_ADDR 0x3C          // some panels are 0x3D
 #define SCR_W 128
 #define SCR_H 64
@@ -98,9 +98,9 @@ static void display_stats(float tok_s, float ms) {
   oled.clearDisplay();
   oled.setTextColor(OLED_WHITE);
   oled.setTextSize(1);
-  oled.setCursor(0, 0);  oled.print("ESP32-S3  PLE LLM");
-  oled.setCursor(0, 14); oled.print("28.9M params");
-  oled.setCursor(0, 24); oled.print("in 320KB of RAM");
+  oled.setCursor(0, 0);  oled.print("TinytinyLM");
+  oled.setCursor(0, 14); oled.print("181K params");
+  oled.setCursor(0, 24); oled.print("in ~149KB of RAM");
   oled.setTextSize(2);
   oled.setCursor(0, 40); oled.print(tok_s, 1); oled.print(" tok/s");
   oled.setTextSize(1);
@@ -167,8 +167,8 @@ static void display_stats(float tok_s, float ms) {
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
   tft.setTextSize(2);
-  tft.setCursor(4, 10);  tft.print("ESP32-S3");
-  tft.setCursor(4, 40);  tft.print("PLE TinyLM");
+  tft.setCursor(4, 10);  tft.print("ESP32");
+  tft.setCursor(4, 40);  tft.print("TinytinyLM");
   tft.setCursor(4, 90);  tft.print("28.9M params");
   tft.setCursor(4, 120); tft.print("in 320KB RAM");
   tft.setTextSize(3);

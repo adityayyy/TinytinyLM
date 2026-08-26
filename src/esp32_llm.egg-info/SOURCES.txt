@@ -1,0 +1,17 @@
+LICENSE
+README.md
+pyproject.toml
+src/analyze.py
+src/budget.py
+src/export.py
+src/gen_assets.py
+src/gen_rp2040_assets.py
+src/model.py
+src/quantize.py
+src/sample.py
+src/train.py
+src/esp32_llm.egg-info/PKG-INFO
+src/esp32_llm.egg-info/SOURCES.txt
+src/esp32_llm.egg-info/dependency_links.txt
+src/esp32_llm.egg-info/requires.txt
+src/esp32_llm.egg-info/top_level.txt

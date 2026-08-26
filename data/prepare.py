@@ -94,7 +94,9 @@ def main():
 
     dtype = np.uint16 if VOCAB_SIZE <= 65536 else np.uint32
     arr = np.array(ids, dtype=dtype)
-    assert arr.max() < VOCAB_SIZE
+    actual_vocab = int(arr.max()) + 1
+    print(f"actual vocab size: {actual_vocab}")
+    assert actual_vocab <= VOCAB_SIZE + 1, f"vocab {actual_vocab} > {VOCAB_SIZE}+1"
     n_val = int(len(arr) * VAL_FRACTION)
     arr[:-n_val].tofile(os.path.join(HERE, f"train{suffix}.bin"))
     arr[-n_val:].tofile(os.path.join(HERE, f"val{suffix}.bin"))

@@ -84,12 +84,32 @@ def main():
     sd = model.state_dict()
 
     def add(name, quant):
-        plan.append((name, sd[name], quant))
+        if name in sd:
+            plan.append((name, sd[name], quant))
+
+    def add_zero_q(tag, rows, cols):
+        t = torch.zeros(rows, cols)
+        plan.append((tag, t, True))
+
+    def add_zero_f(tag, n):
+        t = torch.zeros(n)
+        plan.append((tag, t, False))
 
     add("tok_emb.weight", True)           # tied: input embed + output head
-    add("ple_model_proj.weight", True)
-    add("ple_proj_norm.weight", False)
-    add("ple_table.weight", True)         # the 25M-param table
+
+    # The C reader (llm.h) always expects PLE tensors in this order, even for
+    # baseline. For baseline arm, emit zero tensors so the binary layout matches.
+    D, L, P, V = cfg.d_model, cfg.n_layers, cfg.ple_dim, cfg.vocab_size
+
+    if cfg.uses_per_layer:
+        add("ple_model_proj.weight", True)
+        add("ple_proj_norm.weight", False)
+        add("ple_table.weight", True)
+    else:
+        add_zero_q("ple_model_proj", L * P, D)
+        add_zero_f("ple_proj_norm", P)
+        add_zero_q("ple_table", V, L * P)
+
     for i in range(cfg.n_layers):
         p = f"blocks.{i}."
         add(p + "attn_norm.weight", False)
@@ -99,9 +119,14 @@ def main():
         add(p + "ffn.gate.weight", True)
         add(p + "ffn.up.weight", True)
         add(p + "ffn.down.weight", True)
-        add(p + "ple_gate.weight", True)
-        add(p + "ple_proj.weight", True)
-        add(p + "ple_norm.weight", False)
+        if cfg.uses_per_layer:
+            add(p + "ple_gate.weight", True)
+            add(p + "ple_proj.weight", True)
+            add(p + "ple_norm.weight", False)
+        else:
+            add_zero_q(p + "ple_gate", P, D)
+            add_zero_q(p + "ple_proj", D, P)
+            add_zero_f(p + "ple_norm", D)
     add("out_norm.weight", False)
 
     # Reconstruct a dequantized state dict to drive the golden forward.
