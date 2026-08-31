@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
-  <title id="title">RP2040 and ESP32 AI workflow block diagram</title>
-  <desc id="desc">A block diagram showing model export on a development machine, ESP32-S3 LLM inference, UART output, RP2040 display node, and OLED rendering.</desc>
+  <title id="title">TinytinyLM on Plain ESP32 workflow block diagram</title>
+  <desc id="desc">A block diagram showing model training and export on a development machine, ESP32 inference, and OLED rendering.</desc>
   <defs>
     <style>
       .bg { fill: #f7f9fb; }
@@ -21,59 +21,48 @@
   </defs>
 
   <rect class="bg" x="0" y="0" width="1280" height="720" />
-  <text class="title" x="64" y="58">RP2040 and ESP32 AI: Final System Workflow</text>
-  <text class="text" x="64" y="86">ESP32-S3 runs the real 28.9M-parameter LLM. RP2040 acts as the serial OLED display node.</text>
+  <text class="title" x="64" y="58">TinytinyLM: Tiny LM on a Plain ESP32</text>
+  <text class="text" x="64" y="86">A 181K-parameter byte-level LLM runs entirely in internal SRAM on an ESP32-D0WD-V3 (no PSRAM).</text>
 
-  <rect class="card" x="64" y="135" width="250" height="150" />
+  <rect class="card" x="64" y="135" width="280" height="170" />
   <text class="label" x="88" y="172">Development PC</text>
-  <text class="text" x="88" y="204">Train / export / quantize</text>
-  <text class="small" x="88" y="230">src/export.py</text>
-  <text class="small" x="88" y="252">host_verify/verify.c</text>
+  <text class="text" x="88" y="204">Train on TinyStories</text>
+  <text class="small" x="88" y="228">src/train.py</text>
+  <text class="small" x="88" y="250">byte-level BPE vocab=256</text>
+  <text class="small" x="88" y="272">int4 quantize + export</text>
 
-  <rect class="asset" x="390" y="135" width="250" height="150" />
-  <text class="label" x="414" y="172">Model Artifact</text>
-  <text class="text" x="414" y="204">group-128 ragged int4</text>
-  <text class="small" x="414" y="230">firmware/model/model.bin</text>
-  <text class="small" x="414" y="252">flash offset 0x110000</text>
+  <rect class="asset" x="440" y="135" width="280" height="170" />
+  <text class="label" x="464" y="172">Model Artifact</text>
+  <text class="text" x="464" y="204">group-128 ragged int4</text>
+  <text class="small" x="464" y="228">firmware/model/model.bin</text>
+  <text class="small" x="464" y="250">~158 KB (181K params)</text>
+  <text class="small" x="464" y="272">flash offset 0x140000</text>
 
-  <rect class="chip" x="716" y="116" width="280" height="188" />
-  <text class="label" x="740" y="153">ESP32-S3 LLM Engine</text>
-  <text class="text" x="740" y="185">28.9M-parameter PLE TinyLM</text>
-  <text class="small" x="740" y="211">model mmap from flash</text>
-  <text class="small" x="740" y="233">head + scratch in PSRAM</text>
-  <text class="small" x="740" y="255">greedy token generation</text>
-  <text class="small" x="740" y="277">Serial text stream out</text>
+  <rect class="chip" x="816" y="116" width="340" height="208" />
+  <text class="label" x="840" y="153">ESP32-D0WD-V3 LLM Engine</text>
+  <text class="text" x="840" y="185">4× transformer blocks (d=64, L=4)</text>
+  <text class="small" x="840" y="211">model mmap from flash</text>
+  <text class="small" x="840" y="233">KV cache + head + scratch in SRAM</text>
+  <text class="small" x="840" y="255">dual-core head acceleration</text>
+  <text class="small" x="840" y="277">~20-42 tok/s generation</text>
+  <text class="small" x="840" y="299">Serial text stream out</text>
 
-  <rect class="asset" x="1060" y="150" width="150" height="120" />
-  <text class="label" x="1085" y="185">Output</text>
-  <text class="text" x="1085" y="214">tokens</text>
-  <text class="small" x="1085" y="238">115200 baud</text>
+  <rect class="node" x="1010" y="440" width="200" height="140" />
+  <text class="label" x="1034" y="477">SSD1306 OLED</text>
+  <text class="text" x="1034" y="508">128x64 I2C</text>
+  <text class="small" x="1034" y="532">SDA=GPIO21, SCL=GPIO22</text>
+  <text class="small" x="1034" y="554">text + stats card</text>
 
-  <rect class="node" x="716" y="420" width="280" height="160" />
-  <text class="label" x="740" y="458">RP2040 Display Node</text>
-  <text class="text" x="740" y="490">UART receiver + word wrap</text>
-  <text class="small" x="740" y="516">firmware/rp2040_display_node</text>
-  <text class="small" x="740" y="538">U8g2 OLED renderer</text>
+  <path class="arrow" d="M344 220 H440" />
+  <path class="arrow" d="M720 220 H816" />
+  <path class="arrow dash" d="M986 300 V440" />
+  <text class="small" x="900" y="380">Serial 115200</text>
 
-  <rect class="node" x="1060" y="438" width="150" height="124" />
-  <text class="label" x="1086" y="475">OLED</text>
-  <text class="text" x="1086" y="504">128x64 I2C</text>
-  <text class="small" x="1086" y="528">SSD1306/SH1106</text>
+  <rect class="card" x="64" y="430" width="360" height="170" />
+  <text class="label" x="88" y="467">Memory Budget (SRAM)</text>
+  <text class="text" x="88" y="499">KV cache (2×4×64×64×4B): 128 KB</text>
+  <text class="text" x="88" y="523">Head (int8) + scales: 17 KB</text>
+  <text class="text" x="88" y="547">Scratch buffers: ~4 KB</text>
+  <text class="small" x="88" y="575">Total ~149 KB used, ~174 KB free</text>
 
-  <rect class="card" x="64" y="430" width="300" height="132" />
-  <text class="label" x="88" y="467">Why Two Boards?</text>
-  <text class="text" x="88" y="499">RP2040 cannot host the real LLM</text>
-  <text class="small" x="88" y="523">264 KB SRAM, no PSRAM</text>
-  <text class="small" x="88" y="545">ESP32-S3 handles inference</text>
-
-  <path class="arrow" d="M314 210 H390" />
-  <path class="arrow" d="M640 210 H716" />
-  <path class="arrow" d="M996 210 H1060" />
-  <path class="arrow" d="M1135 270 V438" />
-  <path class="arrow" d="M1060 500 H996" />
-  <path class="arrow dash" d="M856 304 V420" />
-  <text class="small" x="875" y="365">UART serial text</text>
-
-  <path class="arrow dash" d="M364 496 C470 496, 548 496, 716 496" />
-  <text class="small" x="430" y="478">display-only companion</text>
 </svg>

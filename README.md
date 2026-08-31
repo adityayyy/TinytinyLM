@@ -1,149 +1,239 @@
-# Running a 28.9M Parameter Model on ESP32 and RP2040
+# TinytinyLM — A Tiny Language Model on Plain ESP32
 
-RP2040 and ESP32 AI is a two-board embedded AI demo built around an ESP32-S3
-LLM engine and an RP2040 OLED display node. The ESP32-S3 runs the actual
-28.9M-parameter PLE TinyLM model, while the RP2040 acts as a lightweight serial
-display companion for the generated text.
+A minimal end-to-end language model running inference on a plain **ESP32-D0WD-V3**
+(no PSRAM, no S3-only features) with a 0.96" SSD1306 OLED display. Trained on
+TinyStories, exported to a custom binary format, and runs entirely from internal
+SRAM at ~20-42 tok/s.
 
-This repository contains the ESP32-S3 inference firmware, model export and
-verification tooling, an RP2040 serial OLED display-node sketch, a workflow
-diagram, and demo output images.
+![TinytinyLM on plain ESP32](img/IMG_20260827_030355523.jpg)
 
-![ESP32 LLM Workflow](img/workflow-block-diagram.svg)
+## What This Project Does
 
-## Project Story
+1. Trains a small decoder-only transformer on TinyStories
+2. Quantizes it to 4-bit int and exports to a flat binary
+3. Flashes it to a custom partition on a 4 MB ESP32
+4. Runs inference using the ESP32's dual-core CPU
+5. Displays generated text and stats on a 128×64 I2C OLED
 
-I first tried to put the same million-parameter LLM idea directly on the RP2040.
-Because the RP2040 only has 264 KB SRAM and no PSRAM, that path was not practical
-for the real model. I used a smaller RP2040 alternative, but the output quality
-was not strong enough for the final LLM demo.
+## Hardware
 
-The final version uses the ESP32-S3 as the actual LLM engine, based on the
-`esp32-ai` work by Viacheslav Sierbov / slvDev:
+| Component | Spec |
+|-----------|------|
+| **Board** | ESP32-D0WD-V3 (dual core, 240 MHz, 4 MB flash, 368 KB heap) |
+| **Display** | 0.96" 128×64 I2C OLED (SSD1306) |
+| **Serial** | 115200 baud over USB |
+| **PSRAM** | None |
 
-https://github.com/slvDev/esp32-ai
+### Wiring
 
-The RP2040 is kept as a display node. It receives generated LLM text over serial
-and renders it on the OLED.
+| OLED Pin | ESP32 Pin |
+|----------|-----------|
+| VCC | 3.3V |
+| GND | GND |
+| SDA | GPIO 21 |
+| SCL | GPIO 22 |
 
-## Features
+## Model Configuration
 
-- ESP32-S3 runs the actual 28.9M-parameter PLE TinyLM model
-- Model is stored in a custom flash partition and memory-mapped at runtime
-- Hot output head and scratch buffers are staged in PSRAM
-- Host-side export and verification tools are included
-- RP2040 display node receives generated text over UART
-- 128x64 I2C OLED output using U8g2 on the RP2040
-- Workflow diagram and demo output images included in `img/`
-- No cloud API is required for the embedded inference demo
+```
+arm:        baseline (no PLE table)
+vocab_size: 256 (byte-level BPE tokenizer)
+d_model:    64
+n_layers:   4
+n_heads:    4
+ffn_hidden: 128
+seq_len:    64
+```
+
+| Metric | Value |
+|--------|-------|
+| Parameters | 180,800 |
+| 4-bit size | ~158 KB (model.bin) |
+| SRAM used | ~149 KB (KV cache + head + scratch) |
+| Free SRAM | ~174 KB (of 323 KB heap) |
+| Training data | TinyStories (300 MB slice) |
+| Val loss | 1.09 (ppl 2.98) at step 4000 |
+| Inference speed | ~20-42 tok/s |
+
+## Quick Start
+
+### 1. Install Python Dependencies
+
+```bash
+pip install torch numpy tokenizers requests
+```
+
+### 2. Prepare Training Data
+
+```bash
+cd data
+python prepare.py --vocab 256
+```
+
+Downloads TinyStories (~300 MB) and trains a 256-token byte-level BPE tokenizer.
+
+### 3. Train the Model
+
+```bash
+cd src
+python train.py --arm baseline --vocab 256 --d-model 64 \
+  --n-layers 4 --n-heads 4 --seq-len 64 --fixed-ffn 128 \
+  --steps 4000 --batch-size 32 --lr 1e-3 --seed 0 --tag tiny
+```
+
+Takes ~6 minutes on CPU. Output: `runs/baseline-tiny-s0.pt`
+
+### 4. Export to Binary
+
+```bash
+cd src
+python export.py baseline-tiny-s0
+```
+
+Output: `firmware/model/model.bin` (~158 KB)
+
+### 5. Generate Vocab Header
+
+```bash
+cd src
+python gen_assets.py
+```
+
+Output: `firmware/esp32_llm/vocab.h`
+
+### 6. Build & Flash (Arduino IDE)
+
+1. Open `firmware/esp32_llm/esp32_llm.ino` in Arduino IDE
+2. Install libraries: **Adafruit SSD1306**, **Adafruit GFX Library**, **Adafruit BusIO**
+3. Board: **ESP32 Dev Module** (`esp32:esp32:esp32`)
+4. Port: your COM port (e.g., `COM7`)
+5. Upload: `Ctrl+U`
+
+### 7. Flash the Model Partition
+
+Close the Serial Monitor, then in a terminal:
+
+```bash
+esptool --chip esp32 --port COM7 --baud 921600 write_flash 0x140000 firmware/model/model.bin
+```
+
+### 8. Monitor Output
+
+Open Serial Monitor at 115200 baud. Press the EN/RST button on the ESP32.
+
+You should see:
+```
+=== TinytinyLM ===
+model: V=256 D=64 L=4 H=4 F=128 P=64  (mapped 2.8 MB)
+>>> Once upon a time...
+```
+
+The OLED displays generated text and a stats card with tok/s and ms/token.
+
+## Flash Layout (4 MB)
+
+| Partition | Offset | Size | Purpose |
+|-----------|--------|------|---------|
+| nvs | 0x9000 | 20 KB | WiFi/BT config |
+| factory | 0x10000 | 1.19 MB | Firmware |
+| model | 0x140000 | 2.6 MB | Model binary (int4 quantized) |
+| coredump | 0x3E0000 | 128 KB | Crash dumps |
 
 ## Repository Structure
 
-```text
+```
 .
-+-- .gitignore
-+-- data/
-|   +-- prepare.py
-+-- experiments/
-|   +-- clean_confirm.sh
-|   +-- deploy_seed1.sh
-|   +-- overnight.sh
-|   +-- run_ablation.sh
-|   +-- run_ple_dim_sweep.sh
-|   +-- run_seed1.sh
-+-- firmware/
-|   +-- bandwidth_bench/
-|   |   +-- bandwidth_bench.ino
-|   +-- common/
-|   |   +-- llm.h
-|   +-- esp32_llm/
-|   |   +-- display.h
-|   |   +-- esp32_llm.ino
-|   |   +-- partitions.csv
-|   |   +-- README.md
-|   +-- host_verify/
-|   |   +-- ppl.c
-|   |   +-- verify.c
-|   +-- rp2040_display_node/
-|   |   +-- rp2040_display_node.ino
-|   +-- rp2040_tinylm/
-|   |   +-- README.md
-|   |   +-- rp2040_model.h
-|   |   +-- rp2040_tinylm.ino
-+-- img/
-|   +-- IMG_20260817_222228.jpg
-|   +-- IMG_20260817_222245.jpg
-|   +-- workflow-block-diagram.svg
-+-- src/
-|   +-- analyze.py
-|   +-- budget.py
-|   +-- export.py
-|   +-- gen_assets.py
-|   +-- gen_rp2040_assets.py
-|   +-- model.py
-|   +-- quantize.py
-|   +-- sample.py
-|   +-- train.py
-+-- CONTRIBUTING.md
-+-- LICENSE
-+-- README.md
-+-- RESULTS.md
-+-- pyproject.toml
-+-- uv.lock
+├── data/
+│   └── prepare.py              # Download TinyStories, train BPE tokenizer
+├── src/
+│   ├── model.py                # TinyLM architecture (Config, TinyLM)
+│   ├── train.py                # Training loop
+│   ├── export.py               # Export to model.bin (int4 quantized)
+│   ├── gen_assets.py           # Generate vocab.h for firmware
+│   ├── quantize.py             # Group-wise int4 quantization
+│   └── budget.py               # Memory tier accounting
+├── firmware/
+│   ├── common/
+│   │   └── llm.h               # Portable C inference engine
+│   ├── esp32_llm/
+│   │   ├── esp32_llm.ino       # Main firmware (plain ESP32 + OLED)
+│   │   ├── display.h           # SSD1306 OLED driver
+│   │   ├── partitions.csv      # 4 MB flash layout
+│   │   └── vocab.h             # Token → bytes decode table (generated)
+│   ├── host_verify/
+│   │   ├── verify.c            # Host numerical correctness check
+│   │   └── ppl.c               # Host perplexity check
+│   └── rp2040_tinylm/          # Earlier RP2040 experiment
+├── experiments/                 # Training sweep scripts
+├── img/                        # Photos and workflow diagram
+├── OPENCODE_CONTEXT.md         # Detailed session context for agents
+└── RESULTS.md                  # Original experiment results
 ```
 
-## Firmware Files
+## Architecture
 
-- `firmware/esp32_llm/esp32_llm.ino`: ESP32-S3 LLM inference firmware.
-- `firmware/esp32_llm/partitions.csv`: custom flash partition layout with the
-  `model` partition.
-- `firmware/common/llm.h`: portable C inference runtime shared by host and ESP32.
-- `firmware/host_verify/verify.c`: host-side numerical correctness check.
-- `firmware/host_verify/ppl.c`: host-side perplexity check.
-- `firmware/rp2040_display_node/rp2040_display_node.ino`: RP2040 UART-to-OLED
-  display node.
-- `firmware/rp2040_tinylm/`: earlier RP2040-only TinyLM fallback experiment.
-- `src/export.py`: exports the quantized model payload used by the ESP32.
-- `img/workflow-block-diagram.svg`: block diagram for the final two-board system.
+```
+Input tokens
+    │
+    ▼
+┌─────────────────┐
+│  Token Embedding │  (256 × 64, tied with output head)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────┐
+│  4 × Transformer Blocks         │
+│  ┌───────────────────────────┐  │
+│  │ RMSNorm → Attention → +  │  │
+│  │ RMSNorm → SwiGLU FFN → + │  │
+│  └───────────────────────────┘  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  RMSNorm         │
+│  Output Head     │  (256 × 64, int8 staged in SRAM)
+└────────┬────────┘
+         │
+         ▼
+    Next token
+```
 
-## System Workflow
+## Key Design Decisions
 
-The model is trained, exported, and quantized on a development machine, then
-verified against the portable C runtime before deployment. On the device side,
-the ESP32-S3 firmware loads the model from the custom flash partition,
-memory-maps it, stages the hot buffers in PSRAM, and generates text from the
-28.9M-parameter PLE TinyLM. The generated text is streamed over UART/Serial to
-the RP2040, which receives the stream and renders it on the OLED.
+- **Byte-level tokenizer (vocab 256)**: Every byte is a token. Simple, no special
+  vocabulary needed, but the model must learn character-level patterns.
+- **No PLE table**: Skipped the Per-Layer Embedding table entirely (baseline arm)
+  to minimize flash and SRAM usage.
+- **Zero-padded PLE slots**: The C inference engine (`llm.h`) always expects PLE
+  tensors in the binary layout. Baseline arm emits zeros for these slots.
+- **Tied embeddings**: Input embedding and output head share the same weight
+  matrix, halving the parameter count.
+- **Int8 output head**: Head weights are staged in SRAM as int8 for faster
+  dot-product computation. Dual-core parallelism splits the head rows.
+- **Plain malloc**: No PSRAM. All allocations use standard `malloc()`.
+- **flash mmap**: Model binary is memory-mapped from flash; only hot tensors
+  (KV cache, head, scratch) live in SRAM.
 
-## Hardware Summary
+## What Runs Where
 
-- ESP32-S3 N16R8 or equivalent board with PSRAM
-- Raspberry Pi Pico / RP2040 board
-- 128x64 I2C OLED display
-- USB cable for flashing and monitoring
-- UART connection from ESP32 TX to RP2040 RX
-- Common ground between ESP32 and RP2040
+| Stage | Where | Tool |
+|-------|-------|------|
+| Data preparation | PC | `python data/prepare.py` |
+| Training | PC (CPU) | `python src/train.py` |
+| Export | PC | `python src/export.py` |
+| Inference | ESP32 | `esp32_llm.ino` + `llm.h` |
+| Display | ESP32 + OLED | `display.h` |
 
 ## Credit
 
-Credit to Viacheslav Sierbov / slvDev for the original ESP32-S3 28.9M-parameter
-microcontroller LLM work:
-
-https://github.com/slvDev/esp32-ai
-
-TinyStories is the dataset used for training: Ronen Eldan and Yuanzhi Li,
-Microsoft Research, arXiv:2305.07759.
-
-The model uses Per-Layer Embeddings, a technique from Google's Gemma 3n work,
-to make a larger model practical on a small chip by keeping most parameters in
-flash and reading only the rows needed at each token.
-
-Andrej Karpathy's `llama2.c` is an important reference for training a small
-language model and running inference in plain C.
-
-
+- Viacheslav Sierbov / slvDev for the original ESP32-S3 microcontroller LLM work:
+  https://github.com/slvDev/esp32-ai
+- TinyStories dataset: Ronen Eldan and Yuanzhi Li, Microsoft Research,
+  arXiv:2305.07759
+- Per-Layer Embeddings from Google's Gemma 3n work
+- Andrej Karpathy's `llama2.c` for small LM training and C inference reference
 
 ## License
 
-This project is released under the MIT License. See [LICENSE](LICENSE) for the
-full terms.
+MIT License. See [LICENSE](LICENSE).
