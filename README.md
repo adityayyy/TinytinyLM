@@ -5,6 +5,8 @@ A minimal end-to-end language model running inference on a plain **ESP32-D0WD-V3
 TinyStories, exported to a custom binary format, and runs entirely from internal
 SRAM at ~20-42 tok/s.
 
+![TinytinyLM Workflow](img/workflow-block-diagram.svg)
+
 ![TinytinyLM on plain ESP32](img/IMG_20260827_030355523.jpg)
 
 ## What This Project Does
